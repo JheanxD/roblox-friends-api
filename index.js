@@ -25,6 +25,7 @@ app.get("/friends/:username", async (req, res) => {
         }
 
         const userId = user.id;
+        console.log("User ID:", userId); 
 
         const friendsRes = await fetch(`https://friends.roblox.com/v1/users/${userId}/friends`);
         const friendsData = await friendsRes.json();
