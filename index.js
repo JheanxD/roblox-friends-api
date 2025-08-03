@@ -1,27 +1,52 @@
 const express = require("express");
-const axios = require("axios");
+const fetch = require("node-fetch");
 const app = express();
 
 app.get("/friends/:username", async (req, res) => {
-  const username = req.params.username;
-  try {
-    const userRes = await axios.get(`https://api.roblox.com/users/get-by-username?username=${username}`);
-    const userId = userRes.data.Id;
-    if (!userId) return res.status(404).json({ error: "User not found" });
+    const username = req.params.username;
 
-    const friendsRes = await axios.get(`https://friends.roblox.com/v1/users/${userId}/friends`);
-    const friends = friendsRes.data.data.map(friend => ({
-      name: friend.name,
-      displayName: friend.displayName,
-      id: friend.id
-    }));
+    try {
+        const userIdRes = await fetch("https://users.roblox.com/v1/usernames/users", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                usernames: [username],
+                excludeBannedUsers: false
+            })
+        });
 
-    res.json({ username, userId, friends });
-  } catch (e) {
-    res.status(500).json({ error: "Failed to fetch friends" });
-  }
+        const userIdData = await userIdRes.json();
+        const user = userIdData.data[0];
+
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        const userId = user.id;
+
+        const friendsRes = await fetch(`https://friends.roblox.com/v1/users/${userId}/friends`);
+        const friendsData = await friendsRes.json();
+
+        if (!friendsData.data) {
+            return res.status(500).json({ error: "Failed to fetch friends" });
+        }
+
+        const friendList = friendsData.data.map(f => `${f.name} (ID: ${f.id})`);
+
+        res.json({
+            username: username,
+            friends: friendList
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Server error" });
+    }
 });
 
-app.listen(process.env.PORT || 3000, () => {
-  console.log("App is running on port 3000");
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
